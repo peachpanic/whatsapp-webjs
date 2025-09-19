@@ -24,9 +24,22 @@ client.on('ready', () => {
   console.log('WhatsApp bot is ready!');
 });
 
+// helath checking
 
-client.on('health', () => {
-  console.log("just keeping it alive lol...");
+
+app.get('/health', (req, res) => {
+  if (client.info) {
+    res.json({
+      status: "ok",
+      connected: true,
+      user: client.info.wid.user
+    });
+  } else {
+    res.json({
+      status: "ok",
+      connected: false
+    });
+  }
 });
 
 app.post('/send', async (req, res) => {
