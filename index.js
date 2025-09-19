@@ -1,3 +1,6 @@
+
+
+
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const express = require('express');
 const QRCode = require('qrcode');
@@ -22,6 +25,8 @@ client.on('ready', () => {
   console.log('WhatsApp bot is ready!');
 });
 
-client.initialize();
 
-app.listen(3000, () => console.log("Server running on port 3000"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+client.initialize();
