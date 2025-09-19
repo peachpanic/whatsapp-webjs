@@ -24,6 +24,11 @@ client.on('ready', () => {
   console.log('WhatsApp bot is ready!');
 });
 
+
+client.on('health', () => {
+  console.log("just keeping it alive lol...");
+});
+
 app.post('/send', async (req, res) => {
   const { to, message } = req.body;
   try {
