@@ -24,8 +24,26 @@ client.on('ready', () => {
   console.log('WhatsApp bot is ready!');
 });
 
-// helath checking
+// Function to get all group chat IDs
+async function getGroupChats() {
+  try {
+    const chats = await client.getChats();
+    const groupChats = chats.filter(chat => chat.isGroup);
+    return groupChats.map(chat => ({
+      id: chat.id._serialized,
+      name: chat.name,
+      participantCount: chat.participants.length,
+      description: chat.description || null,
+      isReadOnly: chat.isReadOnly,
+      createdAt: chat.createdAt ? new Date(chat.createdAt * 1000).toISOString() : null
+    }));
+  } catch (error) {
+    console.error("Error getting group chats:", error);
+    throw error;
+  }
+}
 
+// helath checking endpoint
 
 app.get('/health', (req, res) => {
   if (client.info) {
@@ -38,6 +56,30 @@ app.get('/health', (req, res) => {
     res.json({
       status: "ok",
       connected: false
+    });
+  }
+});
+
+app.get('/groups', async (req, res) => {
+  try {
+    if (!client.info) {
+      return res.status(400).json({
+        success: false,
+        error: "WhatsApp client is not ready. Please scan QR code first."
+      });
+    }
+
+    const groupChats = await getGroupChats();
+    res.json({
+      success: true,
+      count: groupChats.length,
+      groups: groupChats
+    });
+  } catch (error) {
+    console.error("Error in /groups endpoint:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
