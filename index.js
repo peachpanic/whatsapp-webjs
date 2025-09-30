@@ -8,7 +8,18 @@ app.use(express.json());
 let client;
 let qrImageData = null;
 let clientState = 'INITIALIZING'; 
+
 function createClient() {
+  // Clean up existing client first
+  if (client) {
+    try {
+      client.removeAllListeners(); // Remove all event listeners
+      client.destroy();
+    } catch (error) {
+      console.error('Error cleaning up existing client:', error);
+    }
+  }
+
   client = new Client({
     authStrategy: new LocalAuth({
       clientId: "render-bot-session",
@@ -29,29 +40,33 @@ function createClient() {
   client.on('ready', () => {
     console.log('WhatsApp bot is ready!');
     clientState = 'AUTHENTICATED';
-    qrImageData = null; 
+    // Clear QR code data when authenticated - no longer needed
+    qrImageData = null;
   });
 
   client.on('authenticated', () => {
     console.log('WhatsApp client authenticated');
     clientState = 'AUTHENTICATED';
+    // Clear QR code data when authenticated
+    qrImageData = null;
   });
 
   client.on('auth_failure', (msg) => {
     console.error('Authentication failed:', msg);
     clientState = 'DISCONNECTED';
+    qrImageData = null; // Clear QR code on auth failure
   });
 
   client.on('disconnected', (reason) => {
     console.log('WhatsApp client disconnected:', reason);
     clientState = 'DISCONNECTED';
-    qrImageData = null;
+    qrImageData = null; // Clear QR code on disconnect
   });
 
   return client;
 }
 
-
+// Initialize client only once
 createClient();
 
 app.get('/qr', (req, res) => {
@@ -73,6 +88,7 @@ app.get('/qr', (req, res) => {
           <h2>✅ WhatsApp is Connected!</h2>
           <p>State: ${clientState}</p>
           <p>User: ${client.info?.wid?.user || 'Unknown'}</p>
+          <p><a href="/health">Check Health</a> | <a href="/groups">View Groups</a></p>
         </body>
       </html>
     `);
@@ -80,9 +96,9 @@ app.get('/qr', (req, res) => {
     res.send(`
       <html>
         <body style="text-align: center; font-family: Arial;">
-          <h2>⏳ Generating QR Code...</h2>
+          <h2>⏳ ${clientState === 'INITIALIZING' ? 'Initializing...' : 'Waiting for QR Code...'}</h2>
           <p>State: ${clientState}</p>
-          <p><a href="/qr">Refresh</a> | <a href="/reauth">Force Re-authenticate</a></p>
+          <p><a href="/qr">Refresh</a> | <a href="#" onclick="fetch('/reauth', {method: 'POST'}).then(() => location.reload())">Force Re-authenticate</a></p>
         </body>
       </html>
     `);
@@ -93,14 +109,17 @@ app.post('/reauth', async (req, res) => {
   try {
     console.log('Force re-authentication requested');
     
+    // Clean up current client properly
     if (client) {
+      client.removeAllListeners(); // Remove all event listeners to prevent memory leaks
       await client.destroy();
     }
     
-
+    // Reset state and clear QR data
     clientState = 'INITIALIZING';
     qrImageData = null;
 
+    // Create new client and initialize
     createClient();
     client.initialize();
     
@@ -118,13 +137,16 @@ app.post('/reauth', async (req, res) => {
   }
 });
 
-
 app.get('/health', (req, res) => {
   const healthData = {
     status: "ok",
     state: clientState,
     connected: clientState === 'AUTHENTICATED',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    memory: {
+      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
+    }
   };
 
   if (client && client.info) {
@@ -183,12 +205,14 @@ app.get('/groups', async (req, res) => {
   } catch (error) {
     console.error("Error in /groups endpoint:", error);
     
-
+    // Handle connection errors and update state
     if (error.message.includes('Evaluation failed') || error.message.includes('Cannot read properties')) {
+      clientState = 'DISCONNECTED'; // Update state
+      qrImageData = null; // Clear QR data
       return res.status(500).json({
         success: false,
         error: "Connection lost. Please re-authenticate.",
-        state: 'DISCONNECTED',
+        state: clientState,
         reauth_url: "/reauth"
       });
     }
@@ -200,7 +224,6 @@ app.get('/groups', async (req, res) => {
     });
   }
 });
-
 
 app.post('/send', async (req, res) => {
   const { to, message } = req.body;
@@ -226,11 +249,13 @@ app.post('/send', async (req, res) => {
   } catch (err) {
     console.error("Error sending message:", err);
     
+
     if (err.message.includes('Evaluation failed') || 
         err.message.includes('Cannot read properties') ||
         err.message.includes('Session closed')) {
       
       clientState = 'DISCONNECTED';
+      qrImageData = null; 
       return res.status(500).json({ 
         success: false, 
         error: "Session disconnected. Please re-authenticate.",
@@ -247,7 +272,27 @@ app.post('/send', async (req, res) => {
   }
 });
 
+
+process.on('SIGINT', async () => {
+  console.log('Received SIGINT, shutting down gracefully...');
+  if (client) {
+    client.removeAllListeners();
+    await client.destroy();
+  }
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('Received SIGTERM, shutting down gracefully...');
+  if (client) {
+    client.removeAllListeners();
+    await client.destroy();
+  }
+  process.exit(0);
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
+// Initialize client only once at startup
 client.initialize();
