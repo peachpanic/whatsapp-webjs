@@ -83,6 +83,23 @@ setInterval(async () => {
   }
 }, 30000); // Check every 30 seconds
 
+function getGroupChats() {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const chats = await client.getChats();
+      const groupChats = chats.filter(chat => chat.isGroup);
+      const groupData = groupChats.map(group => ({
+        id: group.id._serialized,
+        name: group.name,
+        participants: group.participants.map(p => p.id._serialized)
+      }));
+      resolve(groupData);
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
 
 function getConnectionStatus() {
   const timeSinceLastHeartbeat = Date.now() - lastHeartbeat;
