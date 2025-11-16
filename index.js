@@ -12,7 +12,6 @@ let lastHeartbeat = Date.now();
 const client = new Client({
   authStrategy: new LocalAuth({
     clientId: "render-bot-session",
-    dataPath: "./sessions"
   }),
   puppeteer: {
     args: [
