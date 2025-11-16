@@ -14,6 +14,8 @@ const client = new Client({
     clientId: "render-bot-session",
   }),
   puppeteer: {
+    executablePath: '/usr/bin/chromium-browser',
+    headless: true,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -23,9 +25,8 @@ const client = new Client({
       '--no-zygote',
       '--single-process',
       '--disable-gpu',
-      '--disable-web-security',
-      '--disable-features=VizDisplayCompositor'
-    ],
+      '--disable-web-security'
+    ]
   }
 });
 
