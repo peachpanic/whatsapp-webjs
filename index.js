@@ -10,8 +10,8 @@ let isClientReady = false;
 let lastHeartbeat = Date.now();
 
 const client = new Client({
-  authStrategy: new LocalAuth({
-    clientId: "render-bot-session",
+  authStrategy: new LocalAuth({ //session stored in pc
+    clientId: "render-bot-session", //client is used to initiate multiple clients
   }),
   puppeteer: {
     executablePath: '/usr/bin/chromium-browser',
@@ -197,7 +197,7 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const PORT = process.env.PORT || 5003;
+app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
 
 client.initialize();
