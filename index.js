@@ -10,14 +10,12 @@ let qrCodeData = null;
 let isClientReady = false;
 let lastHeartbeat = Date.now();
 
-const chromiumProfilePath = path.join(__dirname, 'chromium_data');
-
 const client = new Client({
   authStrategy: new LocalAuth({
     clientId: "render-bot-session",
   }),
   puppeteer: {
-    executablePath: '/usr/bin/chromium-browser', 
+    executablePath: '/usr/bin/chromium-browser',
     headless: true,
     args: [
       '--no-sandbox',
@@ -29,10 +27,10 @@ const client = new Client({
       '--single-process',
       '--disable-gpu',
       '--disable-web-security'
-    ],
-    userDataDir: chromiumProfilePath
+    ]
   }
 });
+
 
 
 app.get('/qr', (req, res) => {
