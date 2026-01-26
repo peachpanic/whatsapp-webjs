@@ -1,6 +1,7 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const express = require('express');
 const QRCode = require('qrcode');
+const path = require('path');
 
 const app = express();
 app.use(express.json());
@@ -9,12 +10,14 @@ let qrCodeData = null;
 let isClientReady = false;
 let lastHeartbeat = Date.now();
 
+const chromiumProfilePath = path.join(__dirname, 'chromium_data');
+
 const client = new Client({
-  authStrategy: new LocalAuth({ //session stored in pc
-    clientId: "render-bot-session", //client is used to initiate multiple clients
+  authStrategy: new LocalAuth({
+    clientId: "render-bot-session",
   }),
   puppeteer: {
-    executablePath: '/usr/bin/chromium-browser',
+    executablePath: '/usr/bin/chromium-browser', 
     headless: true,
     args: [
       '--no-sandbox',
@@ -26,7 +29,8 @@ const client = new Client({
       '--single-process',
       '--disable-gpu',
       '--disable-web-security'
-    ]
+    ],
+    userDataDir: chromiumProfilePath
   }
 });
 
