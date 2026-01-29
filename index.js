@@ -40,6 +40,18 @@ app.get('/qr', (req, res) => {
   }
 });
 
+app.get('/reauthenticate', async (req, res) => {
+  try {
+    await client.logout();
+    isClientReady = false;
+    qrCodeData = null;
+    res.json({ success: true, message: "Logged out successfully. Please refresh /qr to get a new QR code." });
+  } catch (error) {
+    console.error("Error during reauthentication:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 client.on('qr', async (qr) => {
   try {
     qrCodeData = await QRCode.toDataURL(qr);
