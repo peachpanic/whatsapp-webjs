@@ -15,7 +15,6 @@ const client = new Client({
     clientId: "render-bot-session",
   }),
   puppeteer: {
-    executablePath: '/usr/bin/chromium-browser',
     headless: true,
     args: [
       '--no-sandbox',
