@@ -21,9 +21,7 @@ const client = new Client({
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--no-zygote',
-      '--single-process',
       '--disable-gpu',
-      '--disable-web-security'
     ]
   }
 });
