@@ -10,6 +10,7 @@
     "puppeteer": "^24.36.1",
     "puppeteer-core": "^24.36.1",
     "qrcode": "^1.5.4",
-    "whatsapp-web.js": "^1.34.4"
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "github:BenyFilho/whatsapp-web.js#fix_getChats"
   }
 }

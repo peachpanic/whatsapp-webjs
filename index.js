@@ -1,6 +1,7 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, NoAuth } = require('whatsapp-web.js');
 const express = require('express');
 const QRCode = require('qrcode');
+const qrcode = require('qrcode-terminal');
 const path = require('path');
 
 const app = express();
@@ -11,16 +12,12 @@ let isClientReady = false;
 let lastHeartbeat = Date.now();
 
 const client = new Client({
-  authStrategy: new LocalAuth({
-    clientId: "render-bot-session",
-  }),
+  authStrategy: new NoAuth(),
   puppeteer: {
     headless: true,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
-      '--no-zygote',
-      '--disable-gpu',
     ]
   }
 });
@@ -55,33 +52,45 @@ app.get('/reauthenticate', async (req, res) => {
   }
 });
 
-client.on('qr', async (qr) => {
-  try {
-    qrCodeData = await QRCode.toDataURL(qr);
-    console.log("QR code generated and available at /qr endpoint");
-  } catch (error) {
-    console.error("Error generating QR code:", error);
-  }
-});
 
 // hello 
 
-client.on('ready', () => {
+client.on('qr', async (qr) => {
+  try {
+    qrCodeData = await QRCode.toDataURL(qr);
+  } catch (err) {
+    console.warn('Could not create data URL for QR code:', err.message);
+    qrCodeData = null;
+  }
+
+  console.log('QR code generated and available at /qr endpoint');
+
+});
+
+client.once('ready', () => {
   console.log('WhatsApp bot is ready!');
   isClientReady = true;
-  qrCodeData = null; // Clear QR code data when ready
+  qrCodeData = null;
   lastHeartbeat = Date.now();
 });
+
 
 client.on('disconnected', (reason) => {
   console.log('WhatsApp client disconnected:', reason);
   isClientReady = false;
   qrCodeData = null;
+  lastHeartbeat = Date.now();
 });
 
 client.on('auth_failure', (msg) => {
   console.error('Authentication failed:', msg);
   isClientReady = false;
+  lastHeartbeat = Date.now();
+});
+
+client.on('authenticated', (info) => {
+  console.log('WhatsApp client authenticated');
+  lastHeartbeat = Date.now();
 });
 
 
@@ -100,7 +109,7 @@ setInterval(async () => {
 function getGroupChats() {
   return new Promise(async (resolve, reject) => {
     try {
-      const chats = await client.getChats();
+      const chats = await client.getChats();  
       const groupChats = chats.filter(chat => chat.isGroup);
       const groupData = groupChats.map(group => ({
         id: group.id._serialized,
@@ -114,11 +123,22 @@ function getGroupChats() {
   });
 }
 
+function getClientInfo() {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const info = await client.info;
+      resolve(info);
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
 
 function getConnectionStatus() {
   const timeSinceLastHeartbeat = Date.now() - lastHeartbeat;
-  const isConnected = isClientReady && timeSinceLastHeartbeat < 60000; // 1 minute threshold
-  
+  const isConnected = (isClientReady || !!(client && client.info)) && timeSinceLastHeartbeat < 60000;
+
   return {
     connected: isConnected,
     ready: isClientReady,
@@ -129,7 +149,7 @@ function getConnectionStatus() {
 
 app.get('/health', async (req, res) => {
   const connectionStatus = getConnectionStatus();
-  
+
   if (connectionStatus.connected && client.info) {
     res.json({
       status: "ok",
@@ -154,16 +174,24 @@ app.get('/health', async (req, res) => {
   }
 });
 
+app.get('/info', async (req, res) => {
+  try {
+    const info = await getClientInfo();
+    res.json({
+      success: true,
+      info
+    });
+  } catch (error) {
+    console.error("Error in /info endpoint:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+})
+
 app.get('/groups', async (req, res) => {
   try {
-    const connectionStatus = getConnectionStatus();
-    if (!connectionStatus.connected) {
-      return res.status(503).json({
-        success: false,
-        error: "WhatsApp client is not connected or ready. Please check /health endpoint.",
-        connectionStatus
-      });
-    }
 
     const groupChats = await getGroupChats();
     res.json({
@@ -183,15 +211,6 @@ app.get('/groups', async (req, res) => {
 app.post('/send', async (req, res) => {
   const { to, message } = req.body;
   try {
-    const connectionStatus = getConnectionStatus();
-    if (!connectionStatus.connected) {
-      return res.status(503).json({
-        success: false,
-        error: "WhatsApp client is not connected or ready",
-        connectionStatus
-      });
-    }
-
     await client.sendMessage(to, message);
     res.json({ success: true, to, message });
   } catch (err) {
@@ -211,7 +230,7 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-const PORT = process.env.PORT || 5003;
+const PORT = process.env.PORT || 5005;
 app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
 
 client.initialize();
