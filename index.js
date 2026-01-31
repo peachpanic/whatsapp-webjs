@@ -42,6 +42,12 @@ app.get('/reauthenticate', async (req, res) => {
     await client.logout();
     isClientReady = false;
     qrCodeData = null;
+
+    //kill current client
+    await client.destroy();
+
+    //reinitialize client
+    client.initialize();
     res.json({ success: true, message: "Logged out successfully. Please refresh /qr to get a new QR code." });
   } catch (error) {
     console.error("Error during reauthentication:", error);
